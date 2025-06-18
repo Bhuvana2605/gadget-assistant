@@ -7,7 +7,7 @@ HF_API_TOKEN = "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"  # Paste your token from 
 
 API_URL = f"https://api-inference.huggingface.co/chat/assistants/6852ecc9aa34895faa80b436"
 HEADERS = {
-    "Authorization": f"Bearer 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 ",
+    "Authorization": f"Bearer {HF_API_TOKEN}",
     "Content-Type": "application/json"
 }
 
