@@ -7,9 +7,9 @@ st.markdown("Talk to your Hugging Face Assistant for gadget recommendations!")
 
 # Get secrets
 HF_TOKEN = st.secrets["HF_TOKEN"]
-ASSISTANT_ID = st.secrets["6852ecc9aa34895faa80b436"]
+ASSISTANT_ID = st.secrets["ASSISTANT_ID"]
 
-API_URL = f"https://api.huggingface.co/chat/assistants/6852ecc9aa34895faa80b436/messages"
+API_URL = f"https://api.huggingface.co/chat/assistants/{ASSISTANT_ID}/messages"
 HEADERS = {
     "Authorization": f"Bearer {HF_TOKEN}",
     "Content-Type": "application/json"
