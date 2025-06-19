@@ -76,7 +76,7 @@ if st.button("Ask") and user_input:
     with st.spinner("Thinking..."):
         reply = get_response_from_mistral(user_input)
         st.session_state.history.append((user_input, reply))
-        st.experimental_rerun()
+        st.rerun()
 
 # ----------------------------
 # Display Chat History
