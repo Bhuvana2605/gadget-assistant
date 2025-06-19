@@ -50,7 +50,7 @@ if st.button("Ask") and user_input:
     with st.spinner("Thinking..."):
         answer = query_model(user_input)
         st.session_state.chat.append((user_input, answer))
-        st.experimental_rerun()
+        st.rerun()
 
 # --- Show chat ---
 for q, a in reversed(st.session_state.chat):
