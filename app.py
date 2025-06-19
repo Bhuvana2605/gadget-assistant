@@ -23,7 +23,7 @@ Instructions:
 """
 
 # --- Hugging Face Config ---
-MODEL = "HuggingFaceH4/zephyr-7b-beta"
+MODEL = "mistralai/Mistral-7B-Instruct-v0.3"
 HF_TOKEN = st.secrets.get("HF_TOKEN", "")
 
 if not HF_TOKEN:
