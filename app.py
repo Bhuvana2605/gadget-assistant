@@ -1,85 +1,89 @@
 import streamlit as st
-import requests
-import json
+from transformers import AutoModelForCausalLM, AutoTokenizer
+import torch
 
-# --- Page Config ---
-st.set_page_config(page_title="Gadget Advisor", page_icon="📱")
-st.title("🤖 Gadget Advisor AI")
-st.markdown("Ask about smartphones, laptops, earbuds, tablets, and more!")
+# Page setup
+st.set_page_config(page_title="🤖 Gadget Advisor", page_icon="📱")
+st.title("🤖 Gadget Advisor")
+st.markdown("Ask me anything about phones, laptops, smartwatches, tablets & more!")
 
-# --- System Prompt ---
-SYSTEM_PROMPT = """
-You are a professional and friendly gadget advisor. Your role is to recommend the best electronic gadgets based on user needs.
+# Load model & tokenizer (cached for performance)
+@st.cache_resource
+def load_model():
+    tokenizer = AutoTokenizer.from_pretrained("microsoft/DialoGPT-medium")
+    model = AutoModelForCausalLM.from_pretrained("microsoft/DialoGPT-medium")
+    return tokenizer, model
 
-You specialize in smartphones, laptops, headphones, tablets, smartwatches, gaming gear, cameras, and smart home devices.
+tokenizer, model = load_model()
 
-Instructions:
-- Suggest specific products with names and features.
-- Consider user budget and use-case (e.g., gaming, office work, student).
-- Explain differences when comparing options.
-- Always be honest and up-to-date.
-- Mention pros and cons when possible.
-- If you don’t know something, say so politely.
-"""
+# 💬 System Prompt (your version)
+SYSTEM_PROMPT = (
+    "You are a helpful and knowledgeable gadget advisor. You assist users in choosing the best electronic devices — "
+    "including smartphones, laptops, tablets, smartwatches, and more.\n\n"
+    "Always consider the user’s needs such as budget, usage (e.g., gaming, work, photography), and preferences "
+    "(e.g., battery life, camera quality, performance). Provide detailed but easy-to-understand explanations of "
+    "device specifications like processor, RAM, camera setup, display type, battery, and software.\n\n"
+    "Compare models clearly when asked, and suggest the best options available in the market as of 2025. "
+    "Be honest and unbiased — highlight both pros and cons.\n\n"
+    "Your tone is friendly, professional, and trustworthy. You do not fake information — if you're unsure, explain "
+    "that and suggest how the user could verify it."
+)
 
-# --- Hugging Face Config ---
-MODEL = "mistralai/Mistral-7B-Instruct-v0.3"
-HF_TOKEN = st.secrets.get("HF_TOKEN", "")
+# Session state initialization
+if "chat_history_ids" not in st.session_state:
+    st.session_state.chat_history_ids = None
+if "chat_log" not in st.session_state:
+    st.session_state.chat_log = []
+if "system_prompt_injected" not in st.session_state:
+    st.session_state.system_prompt_injected = False
 
-if not HF_TOKEN:
-    st.error("❌ Please add your HF_TOKEN to Streamlit secrets!")
-    st.stop()
+# Input field
+user_input = st.text_input("You:", placeholder="What's the best phone under ₹30,000?")
 
-API_URL = f"https://api-inference.huggingface.co/models/{MODEL}"
-HEADERS = {
-    "Authorization": f"Bearer {HF_TOKEN}",
-    "Content-Type": "application/json"
-}
+# Submit message
+if st.button("Send") and user_input:
+    # Inject system prompt only once at beginning
+    if not st.session_state.system_prompt_injected:
+        sys_ids = tokenizer.encode(SYSTEM_PROMPT + tokenizer.eos_token, return_tensors="pt")
+        st.session_state.chat_history_ids = sys_ids
+        st.session_state.system_prompt_injected = True
 
-# --- Chat History ---
-if "chat_history" not in st.session_state:
-    st.session_state.chat_history = []
+    # Encode user input
+    user_input_ids = tokenizer.encode(user_input + tokenizer.eos_token, return_tensors="pt")
 
-# --- Input ---
-user_input = st.text_input("Ask a gadget question:", placeholder="e.g., Best phone under ₹30000")
+    # Combine with previous context
+    input_ids = torch.cat([st.session_state.chat_history_ids, user_input_ids], dim=-1)
 
-def format_prompt(history, user_input):
-    prompt = f"System: {SYSTEM_PROMPT}\n\n"
-    for msg in history:
-        role = "Human" if msg["role"] == "user" else "Assistant"
-        prompt += f"{role}: {msg['content']}\n"
-    prompt += f"Human: {user_input}\nAssistant:"
-    return prompt
+    # Generate response
+    output_ids = model.generate(
+        input_ids,
+        max_length=1000,
+        pad_token_id=tokenizer.eos_token_id,
+        do_sample=True,
+        temperature=0.8,
+        top_p=0.9
+    )
 
-if st.button("Ask") and user_input:
-    full_prompt = format_prompt(st.session_state.chat_history, user_input)
-    
-    response = requests.post(API_URL, headers=HEADERS, json={
-        "inputs": full_prompt,
-        "parameters": {
-            "max_new_tokens": 512,
-            "temperature": 0.7,
-            "do_sample": True,
-            "return_full_text": False
-        }
-    })
+    # Decode response
+    response = tokenizer.decode(output_ids[:, input_ids.shape[-1]:][0], skip_special_tokens=True)
 
-    if response.status_code == 200:
-        result = response.json()
-        reply = result[0]["generated_text"].strip()
-        st.session_state.chat_history.append({"role": "user", "content": user_input})
-        st.session_state.chat_history.append({"role": "assistant", "content": reply})
-        st.markdown(f"**Assistant:** {reply}")
-    else:
-        st.error(f"Error {response.status_code}: {response.text}")
+    # Save conversation
+    st.session_state.chat_log.append(("You", user_input))
+    st.session_state.chat_log.append(("Bot", response))
+    st.session_state.chat_history_ids = output_ids
 
-# --- Display Chat History ---
-if st.session_state.chat_history:
-    st.markdown("---")
-    st.subheader("🕘 Chat History")
-    for msg in st.session_state.chat_history:
-        with st.chat_message(msg["role"]):
-            st.write(msg["content"])
+    # Refresh the screen
+    st.experimental_rerun()
 
-st.markdown("---")
-st.markdown("Powered by Hugging Face • Model: Mistral")
+# Show chat history
+if st.session_state.chat_log:
+    for speaker, msg in st.session_state.chat_log:
+        with st.chat_message("user" if speaker == "You" else "assistant"):
+            st.write(msg)
+
+# Reset button
+if st.button("Reset Chat"):
+    st.session_state.chat_log = []
+    st.session_state.chat_history_ids = None
+    st.session_state.system_prompt_injected = False
+    st.experimental_rerun()
