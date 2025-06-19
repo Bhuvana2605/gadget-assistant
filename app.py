@@ -3,19 +3,18 @@ import requests
 import json
 
 # ----------------------------
-# Streamlit Config
+# App Setup
 # ----------------------------
-st.set_page_config(page_title="📱 Gadget Advisor", page_icon="🤖")
+st.set_page_config(page_title="📱 Gadget Assistant", page_icon="🤖")
 st.title("🤖 Gadget Advisor")
-st.markdown("Get expert help with phones, laptops, tablets, and other tech!")
+st.markdown("Ask about phones, laptops, tablets, or any gadgets. Get expert help instantly!")
 
 # ----------------------------
-# Hugging Face Inference API Setup
+# Hugging Face Settings
 # ----------------------------
-HF_TOKEN = st.secrets["HF_TOKEN"]  # Set this in Streamlit Cloud Secrets
-MODEL = "mistralai/Mistral-7B-Instruct-v0.1"
+HF_TOKEN = st.secrets["HF_TOKEN"]  # Add your token to Streamlit Secrets
+MODEL = "HuggingFaceH4/zephyr-7b-beta"
 API_URL = f"https://api-inference.huggingface.co/models/{MODEL}"
-
 HEADERS = {
     "Authorization": f"Bearer {HF_TOKEN}",
     "Content-Type": "application/json"
@@ -25,70 +24,74 @@ HEADERS = {
 # System Prompt
 # ----------------------------
 SYSTEM_PROMPT = """
-You are a friendly and knowledgeable gadget expert assistant.
+You are a helpful and knowledgeable gadget advisor. You assist users in choosing the best electronic devices — including smartphones, laptops, tablets, smartwatches, and more.
 
-Help users pick electronics like smartphones, laptops, headphones, smartwatches, and tablets based on their needs (e.g., budget, use-case, features). Offer pros and cons, latest recommendations, and explain specs in simple terms. Be honest and helpful.
+Always consider the user’s needs such as budget, usage (e.g., gaming, work, photography), and preferences (e.g., battery life, camera quality, performance). Provide detailed but easy-to-understand explanations of device specifications like processor, RAM, camera setup, display type, battery, and software.
+
+Compare models clearly when asked, and suggest the best options available in the market as of 2025. Be honest and unbiased — highlight both pros and cons.
+
+Your tone is friendly, professional, and trustworthy. You do not fake information — if you're unsure, explain that and suggest how the user could verify it.
 """
 
 # ----------------------------
-# Get Response Function
+# Conversation History
 # ----------------------------
-def get_response(message):
-    prompt = f"{SYSTEM_PROMPT}\nUser: {message}\nAssistant:"
+if "chat" not in st.session_state:
+    st.session_state.chat = []
 
+# ----------------------------
+# Query HF API
+# ----------------------------
+def query_zephyr(prompt):
+    formatted = f"<|system|>\n{SYSTEM_PROMPT.strip()}\n<|user|>\n{prompt.strip()}\n<|assistant|>\n"
     payload = {
-        "inputs": prompt,
+        "inputs": formatted,
         "parameters": {
+            "temperature": 0.7,
             "max_new_tokens": 512,
-            "temperature": 0.7
+            "return_full_text": False
         }
     }
-
     try:
         response = requests.post(API_URL, headers=HEADERS, json=payload)
         if response.status_code == 200:
             result = response.json()
-            if isinstance(result, list) and result:
-                return result[0].get("generated_text", "").replace(prompt, "").strip()
-            elif isinstance(result, dict):
-                return result.get("generated_text", "").strip()
-            else:
-                return "⚠️ Unexpected response format."
+            return result[0]["generated_text"].strip()
         elif response.status_code == 503:
-            return "⏳ Model is currently loading. Try again shortly."
+            return "⏳ The model is still loading, try again in a few seconds."
         elif response.status_code == 401:
-            return "🔒 Invalid or expired Hugging Face token."
-        elif response.status_code == 404:
-            return "❌ Model not found or not accessible."
+            return "🔒 Invalid or missing Hugging Face token."
         else:
             return f"❌ Error {response.status_code}: {response.text}"
     except Exception as e:
-        return f"🚫 Request failed: {str(e)}"
+        return f"🚫 Failed to connect: {str(e)}"
 
 # ----------------------------
-# Chat UI
+# Chat Input
 # ----------------------------
-if "history" not in st.session_state:
-    st.session_state.history = []
+st.markdown("### 💬 Chat")
+user_input = st.text_input("Ask your gadget question", placeholder="e.g., Best phone under ₹25,000")
 
-user_input = st.text_input("💬 Ask your question:", placeholder="e.g. Best phone under ₹30,000")
 if st.button("Ask") and user_input:
     with st.spinner("Thinking..."):
-        reply = get_response(user_input)
-        st.session_state.history.append(("You", user_input))
-        st.session_state.history.append(("Assistant", reply))
-        st.rerun()
+        reply = query_zephyr(user_input)
+        st.session_state.chat.append({"role": "user", "content": user_input})
+        st.session_state.chat.append({"role": "assistant", "content": reply})
+        st.experimental_rerun()
 
 # ----------------------------
-# Display History
+# Show Chat
 # ----------------------------
-if st.session_state.history:
-    st.subheader("🧠 Chat History")
-    for role, msg in reversed(st.session_state.history):
-        st.markdown(f"**{role}:** {msg}")
+for message in reversed(st.session_state.chat):
+    if message["role"] == "user":
+        with st.chat_message("user"):
+            st.markdown(f"**You:** {message['content']}")
+    else:
+        with st.chat_message("assistant"):
+            st.markdown(f"**Assistant:** {message['content']}")
 
 # ----------------------------
 # Footer
 # ----------------------------
 st.markdown("---")
-st.markdown("🔌 Powered by Hugging Face + Mistral")
+st.markdown("Built with ❤️ using Zephyr 7B on Hugging Face Inference API")
