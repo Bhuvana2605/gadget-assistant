@@ -8,7 +8,8 @@ st.markdown("Get expert help choosing electronics like phones, laptops, and tabl
 
 # Hugging Face Token from Streamlit secrets
 HF_API_TOKEN = st.secrets["HF_API_TOKEN"]
-API_URL = "https://api-inference.huggingface.co/models/mistralai/Mistral-7B-Instruct-v0.1"
+API_URL = "https://api-inference.huggingface.co/models/HuggingFaceH4/zephyr-7b-beta"
+
 
 HEADERS = {
     "Authorization": f"Bearer {HF_API_TOKEN}",
