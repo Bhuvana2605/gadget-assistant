@@ -13,7 +13,6 @@ st.markdown("Your smart assistant for electronics recommendations and advice.")
 # Constants
 # ----------------------------
 HF_TOKEN = st.secrets["HF_TOKEN"]
-  # 🔁 Replace with your token
 MODEL = "mistralai/Mistral-7B-Instruct-v0.1"
 API_URL = f"https://api-inference.huggingface.co/models/{MODEL}"
 HEADERS = {
