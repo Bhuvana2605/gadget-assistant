@@ -1,44 +1,45 @@
 import streamlit as st
 import requests
 
-# Streamlit UI setup
-st.set_page_config(page_title="Gadget Advisor", page_icon="🤖")
-st.title("🤖 Ask Gadget Advisor")
-st.markdown("Get expert help choosing electronics like phones, laptops, and tablets.")
+st.set_page_config(page_title="🎯 Gadget Assistant", page_icon="🤖")
+st.title("🤖 Ask My AI Assistant")
+st.markdown("Talk to your Hugging Face Assistant for gadget recommendations!")
 
-# Hugging Face Token from Streamlit secrets
-HF_API_TOKEN = st.secrets["HF_API_TOKEN"]
-API_URL = "https://api-inference.huggingface.co/models/HuggingFaceH4/zephyr-7b-beta"
+# Get secrets
+HF_TOKEN = st.secrets["HF_TOKEN"]
+ASSISTANT_ID = st.secrets["6852ecc9aa34895faa80b436"]
 
-
+API_URL = f"https://api.huggingface.co/chat/assistants/6852ecc9aa34895faa80b436/messages"
 HEADERS = {
-    "Authorization": f"Bearer {HF_API_TOKEN}",
+    "Authorization": f"Bearer {HF_TOKEN}",
     "Content-Type": "application/json"
 }
 
-# Custom system prompt
-SYSTEM_PROMPT = """
-You are Gadget Advisor, an expert AI assistant that helps users choose phones, tablets, and laptops.
-Always include detailed specs (processor, RAM, battery, camera, display) and recommend based on budget, use-case, and quality.
-Be clear, helpful, and friendly.
-"""
+# Store the conversation
+if "chat_history" not in st.session_state:
+    st.session_state.chat_history = []
 
-# Get user input
-user_input = st.text_input("Ask your question (e.g., Best phone under ₹30,000):")
+# User input
+user_input = st.text_input("Ask anything about electronics:")
 
-if st.button("Ask") and user_input:
+if st.button("Send") and user_input:
     with st.spinner("Thinking..."):
-        final_prompt = f"{SYSTEM_PROMPT}\n\nUser: {user_input}\n\nAssistant:"
-
-        response = requests.post(
-            API_URL,
-            headers=HEADERS,
-            json={"inputs": final_prompt}
-        )
+        payload = {
+            "inputs": {
+                "messages": st.session_state.chat_history + [{"role": "user", "content": user_input}]
+            }
+        }
+        response = requests.post(API_URL, headers=HEADERS, json=payload)
 
         if response.status_code == 200:
             result = response.json()
-            reply = result[0]["generated_text"].split("Assistant:")[-1].strip()
-            st.success(reply)
+            assistant_message = result.get("generated_message", {}).get("content", "")
+            st.session_state.chat_history.append({"role": "user", "content": user_input})
+            st.session_state.chat_history.append({"role": "assistant", "content": assistant_message})
         else:
-            st.error(f"❌ Error: {response.status_code} - {response.text}")
+            st.error(f"❌ Error {response.status_code}: {response.text}")
+
+# Display chat history
+for msg in st.session_state.chat_history:
+    role = "🧑 You" if msg["role"] == "user" else "🤖 Assistant"
+    st.markdown(f"**{role}:** {msg['content']}")
