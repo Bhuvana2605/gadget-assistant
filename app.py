@@ -3,7 +3,8 @@ import requests
 
 # Your Hugging Face Assistant details
 ASSISTANT_ID = "6852ecc9aa34895faa80b436"
-HF_API_TOKEN = "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"  # Paste your token from HF
+HF_API_TOKEN = st.secrets["HF_API_TOKEN"]
+  # Paste your token from HF
 
 API_URL = f"https://api-inference.huggingface.co/chat/assistants/6852ecc9aa34895faa80b436"
 HEADERS = {
