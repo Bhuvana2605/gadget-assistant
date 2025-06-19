@@ -82,4 +82,4 @@ if st.session_state.chat_history:
             st.write(msg["content"])
 
 st.markdown("---")
-st.markdown("Powered by Hugging Face • Model: Zephyr-7B Beta")
+st.markdown("Powered by Hugging Face • Model: Mistral")
