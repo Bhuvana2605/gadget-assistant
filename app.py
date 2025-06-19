@@ -13,8 +13,9 @@ st.markdown("Your smart assistant for electronics recommendations and advice.")
 # Constants
 # ----------------------------
 HF_TOKEN = st.secrets["HF_TOKEN"]
-MODEL = "microsoft/Phi-3-mini-128k-instruct"
+MODEL = "HuggingFaceH4/zephyr-7b-beta"
 API_URL = f"https://api-inference.huggingface.co/models/{MODEL}"
+
 
 HEADERS = {
     "Authorization": f"Bearer {HF_TOKEN}",
