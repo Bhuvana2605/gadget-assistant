@@ -1,6 +1,6 @@
 import streamlit as st
 import requests
-import json
+import os
 
 # ----------------------------
 # App Setup
@@ -8,17 +8,6 @@ import json
 st.set_page_config(page_title="📱 Gadget Assistant", page_icon="🤖")
 st.title("🤖 Gadget Advisor")
 st.markdown("Ask about phones, laptops, tablets, or any gadgets. Get expert help instantly!")
-
-# ----------------------------
-# Hugging Face Settings
-# ----------------------------
-HF_TOKEN = st.secrets["HF_TOKEN"]  # Add your token to Streamlit Secrets
-MODEL = "HuggingFaceH4/zephyr-7b-beta"
-API_URL = f"https://api-inference.huggingface.co/models/{MODEL}"
-HEADERS = {
-    "Authorization": f"Bearer {HF_TOKEN}",
-    "Content-Type": "application/json"
-}
 
 # ----------------------------
 # System Prompt
@@ -64,27 +53,30 @@ if "chat" not in st.session_state:
     st.session_state.chat = []
 
 # ----------------------------
-# Query HF API
+# OpenRouter API Call (Mistral)
 # ----------------------------
-def query_zephyr(prompt):
-    formatted = f"<|system|>\n{SYSTEM_PROMPT.strip()}\n<|user|>\n{prompt.strip()}\n<|assistant|>\n"
-    payload = {
-        "inputs": formatted,
-        "parameters": {
-            "temperature": 0.7,
-            "max_new_tokens": 512,
-            "return_full_text": False
-        }
+def query_mistral(prompt):
+    headers = {
+        "Authorization": f"Bearer {os.environ['OPENROUTER_API_KEY']}",
+        "Content-Type": "application/json"
     }
+
+    data = {
+        "model": "mistralai/mistral-7b-instruct",
+        "messages": [
+            {"role": "system", "content": SYSTEM_PROMPT},
+            {"role": "user", "content": prompt}
+        ],
+        "temperature": 0.7,
+        "max_tokens": 600
+    }
+
     try:
-        response = requests.post(API_URL, headers=HEADERS, json=payload)
+        response = requests.post("https://openrouter.ai/api/v1/chat/completions", headers=headers, json=data)
         if response.status_code == 200:
-            result = response.json()
-            return result[0]["generated_text"].strip()
-        elif response.status_code == 503:
-            return "⏳ The model is still loading, try again in a few seconds."
+            return response.json()["choices"][0]["message"]["content"].strip()
         elif response.status_code == 401:
-            return "🔒 Invalid or missing Hugging Face token."
+            return "🔒 Invalid or missing OpenRouter API key."
         else:
             return f"❌ Error {response.status_code}: {response.text}"
     except Exception as e:
@@ -98,7 +90,7 @@ user_input = st.text_input("Ask your gadget question", placeholder="e.g., Best p
 
 if st.button("Ask") and user_input:
     with st.spinner("Thinking..."):
-        reply = query_zephyr(user_input)
+        reply = query_mistral(user_input)
         st.session_state.chat.append({"role": "user", "content": user_input})
         st.session_state.chat.append({"role": "assistant", "content": reply})
         st.rerun()
@@ -118,4 +110,4 @@ for message in reversed(st.session_state.chat):
 # Footer
 # ----------------------------
 st.markdown("---")
-st.markdown("Built with ❤️ using Zephyr 7B on Hugging Face Inference API")
+st.markdown("Built with ❤️ using Mistral 7B via OpenRouter API")
